@@ -1,0 +1,56 @@
+# ApplicationSet — cert-manager on every role=forge cluster (currently: mgmt-forge)
+#
+# Pattern B (umbrella chart): single source points at forge/cert-manager/ in
+# the git repo. ArgoCD's repo-server runs `helm dependency build` on Chart.yaml,
+# pulls the upstream jetstack/cert-manager v1.16.1 chart, and renders with
+# values.yaml (which nests values under the `cert-manager:` subchart key).
+#
+# Apply once:
+#   kubectl --context admin apply -f argo/forge/cert-manager-appset.yaml
+#
+# After this, bootstrapping any new cluster with role=forge label automatically
+# gets cert-manager — no ArgoCD edit needed.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cert-manager
+  namespace: argocd-sre
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            role: forge
+  template:
+    metadata:
+      name: 'cert-manager-{{name}}'
+      labels:
+        app.kubernetes.io/name: cert-manager
+        app.kubernetes.io/part-of: platform
+      annotations:
+        argocd.argoproj.io/sync-wave: "0"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/GaddipatiSriram/forge.git
+        targetRevision: HEAD
+        path: cert-manager
+        helm:
+          releaseName: cert-manager
+      destination:
+        server: '{{server}}'
+        namespace: cert-manager
+      syncPolicy:
+        automated:
+          selfHeal: true
+          prune: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
