@@ -20,8 +20,12 @@ spec:
   generators:
     - clusters:
         selector:
-          matchLabels:
-            role: forge
+          # Pattern A — every workload-capable cluster needs an ingress controller.
+          # Matches mgmt-forge, mgmt-observability, mgmt-core, dev-*.
+          # Excludes mgmt-storage (no workloads with Ingress resources).
+          matchExpressions:
+            - { key: tier, operator: In,    values: [mgmt, dev] }
+            - { key: role, operator: NotIn, values: [storage] }
   template:
     metadata:
       name: 'ingress-nginx-{{name}}'
