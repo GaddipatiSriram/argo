@@ -64,6 +64,18 @@ spec:
       destination:
         server: '{{.server}}'
         namespace: metallb-system
+      # MetalLB's controller injects its own webhook caBundle onto the
+      # bgppeers CRD's conversion config at runtime — the chart ships
+      # the CRD with caBundle empty, so Argo sees drift on every sync
+      # and flags OutOfSync forever (despite Healthy). Standard fix is
+      # to ignore that field. Other MetalLB CRDs ship without a
+      # conversion webhook so they don't need this rule.
+      ignoreDifferences:
+        - group: apiextensions.k8s.io
+          kind: CustomResourceDefinition
+          name: bgppeers.metallb.io
+          jsonPointers:
+            - /spec/conversion/webhook/clientConfig/caBundle
       syncPolicy:
         automated:
           selfHeal: true
