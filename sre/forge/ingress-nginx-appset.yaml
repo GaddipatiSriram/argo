@@ -45,18 +45,21 @@ spec:
         helm:
           releaseName: ingress-nginx
           # Pin the controller's LoadBalancer VIP to a per-cluster IP from
-          # that cluster's MetalLB pool — mgmt-forge keeps 10.10.5.201
-          # because forge clients (CoreDNS records, OIDC issuer URLs,
-          # cert-manager Vault Issuer URL) all assume that IP. Other
-          # clusters get the .201 of their own /24.
-          parameters:
-            - name: 'ingress-nginx.controller.service.annotations.metallb\.universe\.tf/loadBalancerIPs'
-              value: '{{- if eq .name "mgmt-forge"             -}}10.10.5.201
-                      {{- else if eq .name "mgmt-observability" -}}10.10.3.201
-                      {{- else if eq .name "dev-web"           -}}10.20.1.201
-                      {{- else if eq .name "dev-apps"          -}}10.20.2.201
-                      {{- else if eq .name "dev-data"          -}}10.20.3.201
-                      {{- else                                  -}}MISSING{{- end -}}'
+          # that cluster's MetalLB pool. Annotation keys with dots don't
+          # round-trip cleanly through helm `--set` (Argo's `parameters`
+          # mechanism), so we use `valuesObject` to inject raw YAML
+          # values instead — the annotation key reads naturally.
+          valuesObject:
+            ingress-nginx:
+              controller:
+                service:
+                  annotations:
+                    metallb.universe.tf/loadBalancerIPs: '{{- if eq .name "mgmt-forge"             -}}10.10.5.201
+                                                          {{- else if eq .name "mgmt-observability" -}}10.10.3.201
+                                                          {{- else if eq .name "dev-web"           -}}10.20.1.201
+                                                          {{- else if eq .name "dev-apps"          -}}10.20.2.201
+                                                          {{- else if eq .name "dev-data"          -}}10.20.3.201
+                                                          {{- else                                  -}}MISSING{{- end -}}'
       destination:
         server: '{{.server}}'
         namespace: ingress-nginx
